@@ -1,0 +1,16 @@
+server:
+  port: 9000
+
+security:
+  jwt:
+    key-store: classpath:keystore.jks
+    key-store-password: letmein
+    key-pair-alias: mytestkey
+    key-pair-password: changeme
+
+spring:
+   datasource:
+      driver-class-name: org.hsqldb.jdbc.JDBCDriver
+      url: jdbc:hsqldb:hsql://localhost/survey
+      username: sa
+      password:
