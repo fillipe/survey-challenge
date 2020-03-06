@@ -15,4 +15,6 @@ public interface SurveyRepository extends JpaRepository<Survey, Long> {
 	
 	public List<Survey> findByStatus(SurveyStatus status);
 	
+	public List<Survey> findByOwnerEmail(String email);
+	
 }

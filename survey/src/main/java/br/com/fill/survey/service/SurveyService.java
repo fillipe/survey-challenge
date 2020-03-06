@@ -37,6 +37,10 @@ public class SurveyService {
 		return repository.findByStatus(SurveyStatus.OPENED);
 	}
 	
+	public List<Survey> getAllByOwner(String email) {
+		return repository.findByOwnerEmail(email);
+	}
+	
 	public boolean vote(Long surveyId, Integer optionNumber) throws InvalidOptionException {
 		Survey survey = repository.findByIdAndStatus(surveyId, SurveyStatus.OPENED);
 		

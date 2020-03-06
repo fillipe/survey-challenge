@@ -1,13 +1,12 @@
+server:
+  port: 8080
+  
 spring:
    datasource:
       driver-class-name: org.hsqldb.jdbc.JDBCDriver
-      url: jdbc:hsqldb:hsql://localhost/survey
+      jdbc-url: jdbc:hsqldb:hsql://localhost/survey
       username: sa
       password:
    jpa:
       hibernate:
          ddl-auto: update
-
-security:
-   jwt:
-      public-key: classpath:public.txt

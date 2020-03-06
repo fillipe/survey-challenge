@@ -1,113 +1,71 @@
 package br.com.fill.authserver.configuration;
 
-import java.security.KeyPair;
-
 import javax.sql.DataSource;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
-import org.springframework.security.oauth2.provider.ClientDetailsService;
-import org.springframework.security.oauth2.provider.token.DefaultTokenServices;
+import org.springframework.security.oauth2.provider.approval.ApprovalStore;
+import org.springframework.security.oauth2.provider.approval.JdbcApprovalStore;
+import org.springframework.security.oauth2.provider.client.JdbcClientDetailsService;
+import org.springframework.security.oauth2.provider.code.AuthorizationCodeServices;
+import org.springframework.security.oauth2.provider.code.JdbcAuthorizationCodeServices;
 import org.springframework.security.oauth2.provider.token.TokenStore;
-import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
-import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
-import org.springframework.security.oauth2.provider.token.store.KeyStoreKeyFactory;
-
-import br.com.fill.authserver.configuration.properties.SecurityProperties;
+import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 
 @Configuration
 @EnableAuthorizationServer
-@EnableConfigurationProperties(SecurityProperties.class)
 public class AuthorizationServerConfiguration extends AuthorizationServerConfigurerAdapter {
+	
+	@Bean
+	@ConfigurationProperties(prefix = "spring.datasource")
+	public DataSource oauthDataSource() {
+		return DataSourceBuilder.create().build();
+	}
 
-	private final DataSource dataSource;
-	private final PasswordEncoder passwordEncoder;
-	private final AuthenticationManager authenticationManager;
-	private final SecurityProperties securityProperties;
-	private final UserDetailsService userDetailsService;
-
-	private JwtAccessTokenConverter jwtAccessTokenConverter;
-	private TokenStore tokenStore;
-
-	public AuthorizationServerConfiguration(final DataSource dataSource, final PasswordEncoder passwordEncoder,
-			final AuthenticationManager authenticationManager, final SecurityProperties securityProperties,
-			final UserDetailsService userDetailsService) {
-		this.dataSource = dataSource;
-		this.passwordEncoder = passwordEncoder;
-		this.authenticationManager = authenticationManager;
-		this.securityProperties = securityProperties;
-		this.userDetailsService = userDetailsService;
+	@Bean
+	public JdbcClientDetailsService jdbcClientDetailsService(PasswordEncoder passwordEncoder) {
+		JdbcClientDetailsService clientDetailsService = new JdbcClientDetailsService(oauthDataSource());
+		clientDetailsService.setPasswordEncoder(passwordEncoder);
+		return clientDetailsService;
 	}
 
 	@Bean
 	public TokenStore tokenStore() {
-		if (tokenStore == null) {
-			tokenStore = new JwtTokenStore(jwtAccessTokenConverter());
-		}
-		return tokenStore;
+		return new JdbcTokenStore(oauthDataSource());
 	}
 
 	@Bean
-	public DefaultTokenServices tokenServices(final TokenStore tokenStore,
-			final ClientDetailsService clientDetailsService) {
-		DefaultTokenServices tokenServices = new DefaultTokenServices();
-		tokenServices.setSupportRefreshToken(true);
-		tokenServices.setTokenStore(tokenStore);
-		tokenServices.setClientDetailsService(clientDetailsService);
-		tokenServices.setAuthenticationManager(this.authenticationManager);
-		return tokenServices;
+	public ApprovalStore approvalStore() {
+		return new JdbcApprovalStore(oauthDataSource());
 	}
 
 	@Bean
-	public JwtAccessTokenConverter jwtAccessTokenConverter() {
-		if (jwtAccessTokenConverter != null) {
-			return jwtAccessTokenConverter;
-		}
-
-		SecurityProperties.JwtProperties jwtProperties = securityProperties.getJwt();
-		KeyPair keyPair = keyPair(jwtProperties, keyStoreKeyFactory(jwtProperties));
-
-		jwtAccessTokenConverter = new JwtAccessTokenConverter();
-		jwtAccessTokenConverter.setKeyPair(keyPair);
-		return jwtAccessTokenConverter;
+	public AuthorizationCodeServices authorizationCodeServices() {
+		return new JdbcAuthorizationCodeServices(oauthDataSource());
 	}
 
 	@Override
-	public void configure(final ClientDetailsServiceConfigurer clients) throws Exception {
-		clients.jdbc(this.dataSource);
+	public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+		clients.withClientDetails(jdbcClientDetailsService(null));
 	}
 
 	@Override
-	public void configure(final AuthorizationServerEndpointsConfigurer endpoints) {
-		endpoints.authenticationManager(this.authenticationManager)
-				.accessTokenConverter(jwtAccessTokenConverter())
-				.userDetailsService(this.userDetailsService)
+	public void configure(AuthorizationServerSecurityConfigurer oauthServer) throws Exception {
+
+	}
+
+	@Override
+	public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+		endpoints.approvalStore(approvalStore()).authorizationCodeServices(authorizationCodeServices())
 				.tokenStore(tokenStore());
-	}
-
-	@Override
-	public void configure(final AuthorizationServerSecurityConfigurer oauthServer) {
-		oauthServer.passwordEncoder(this.passwordEncoder)
-					.tokenKeyAccess("permitAll()")
-					.checkTokenAccess("isAuthenticated()");
-	}
-
-	private KeyPair keyPair(SecurityProperties.JwtProperties jwtProperties, KeyStoreKeyFactory keyStoreKeyFactory) {
-		return keyStoreKeyFactory.getKeyPair(jwtProperties.getKeyPairAlias(),
-				jwtProperties.getKeyPairPassword().toCharArray());
-	}
-
-	private KeyStoreKeyFactory keyStoreKeyFactory(SecurityProperties.JwtProperties jwtProperties) {
-		return new KeyStoreKeyFactory(jwtProperties.getKeyStore(), jwtProperties.getKeyStorePassword().toCharArray());
 	}
 	
 }

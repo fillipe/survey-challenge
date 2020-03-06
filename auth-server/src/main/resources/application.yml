@@ -1,16 +1,13 @@
 server:
-  port: 9000
-
-security:
-  jwt:
-    key-store: classpath:keystore.jks
-    key-store-password: letmein
-    key-pair-alias: mytestkey
-    key-pair-password: changeme
+  port: 8081
 
 spring:
    datasource:
       driver-class-name: org.hsqldb.jdbc.JDBCDriver
-      url: jdbc:hsqldb:hsql://localhost/survey
+      jdbc-url: jdbc:hsqldb:hsql://localhost/survey
       username: sa
       password:
+      initialization-mode: never
+   jpa:
+      hibernate:
+        ddl-auto: none
